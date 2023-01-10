@@ -471,6 +471,7 @@ def write_model(model, name):
         f.write(model.__str__())
 
 
+
 if __name__ == "__main__":
     import paddle
     inputs = paddle.randn((3, 3, 224, 224))
