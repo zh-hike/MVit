@@ -65,6 +65,11 @@ _CLIP_diff = {
     'add_rel_pos_bias_in_msa': [],
     'add_mul_gamma_to_msa_mlp': [],
     'remove_cls_token': [],
+    'head':{
+        'fc_norm': [],
+        'return_all_tokens':[],
+        'return_patch_tokens':[],
+    }
 }
 
 _CoCa_diff = {
@@ -73,6 +78,11 @@ _CoCa_diff = {
     'add_rel_pos_bias_in_msa': [],
     'add_mul_gamma_to_msa_mlp': [],
     'remove_cls_token': ['small_patch16_224'],
+    'head':{
+        'fc_norm': [],
+        'return_all_tokens':[],
+        'return_patch_tokens':[],
+    }
 }
 
 _BEiTv2_diff = {
@@ -81,6 +91,11 @@ _BEiTv2_diff = {
     'add_rel_pos_bias_in_msa': ['small_patch16_224'],
     'add_mul_gamma_to_msa_mlp': ['small_patch16_224'],
     'remove_cls_token': [],
+    'head':{
+        'fc_norm': [],
+        'return_all_tokens':[],
+        'return_patch_tokens':[],
+    }
 }
 
 _CAE_diff = {
@@ -89,6 +104,11 @@ _CAE_diff = {
     'add_rel_pos_bias_in_msa': ['small_patch16_224'],
     'add_mul_gamma_to_msa_mlp': ['small_patch16_224'],
     'remove_cls_token': [],
+    'head':{
+        'fc_norm': [],
+        'return_all_tokens':[],
+        'return_patch_tokens':[],
+    }
 }
 
 _EVA_diff = {
@@ -97,6 +117,11 @@ _EVA_diff = {
     'add_rel_pos_bias_in_msa': ['small_patch16_224'],
     'add_mul_gamma_to_msa_mlp': ['small_patch16_224'],
     'remove_cls_token': [],
+    'head':{
+        'fc_norm': [],
+        'return_all_tokens':[],
+        'return_patch_tokens':[],
+    }
 }
 
 trunc_normal_ = TruncatedNormal(std=.02)
@@ -506,7 +531,7 @@ class VisionTransformer(nn.Layer):
         # self.head = nn.Linear(embed_dim,
         #                       class_num) if class_num > 0 else Identity()
         self.head = Identity() if self.return_embed else Head(embed_dim, class_num, norm_layer, 
-                                        self.model_size, self.model_diff['head'])
+                                        self.model_size, _model_diff['head'])
 
         trunc_normal_(self.pos_embed)
         if not _model_size in _model_diff['remove_cls_token']:
