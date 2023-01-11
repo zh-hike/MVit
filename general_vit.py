@@ -15,7 +15,7 @@
 # Code was based on https://github.com/rwightman/pytorch-image-models/blob/master/timm/models/vision_transformer.py
 # reference: https://arxiv.org/abs/2010.11929
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 
 import numpy as np
 import paddle
@@ -47,8 +47,9 @@ _MODEL_LIST = ['CLIP', 'BEiTv2', 'CAE', 'EVA', 'CoCa']
 _model_diff = {
     'add_layer_norm_before_encoder': ['CLIP'],
     'add_relative_position_bias_in_msa': ['BEiTv2', 'CAE', 'EVA'],
+    'add_rel_pos_bias_in_msa': ['BEiTv2', 'CAE', 'EVA'],
     'add_mul_gamma_to_msa_mlp': ['BEiTv2', 'CAE', 'EVA'],
-    'remove_cls_token': ['CoCa']
+    'remove_cls_token': ['CoCa'],
 }
 
 
@@ -128,8 +129,18 @@ class Attention(nn.Layer):
                  qkv_bias=False,
                  qk_scale=None,
                  attn_drop=0.,
-                 proj_drop=0.):
+                 proj_drop=0.,
+                 model_name=None,
+                 window_size=None):
         super().__init__()
+        self._model_name = model_name
+
+        if self._model_name in _model_diff['add_relative_position_bias_in_msa']:
+            assert isinstance(window_size, Iterable), f'window_size must be iterable, should not be {type(window_size)}' 
+            self.window_size = window_size
+            self._register_relative_position_index(window_size=window_size,
+                                                   num_heads=num_heads,)
+
         self.num_heads = num_heads
         head_dim = dim // num_heads
         self.scale = qk_scale or head_dim**-0.5
@@ -139,7 +150,31 @@ class Attention(nn.Layer):
         self.proj = nn.Linear(dim, dim)
         self.proj_drop = nn.Dropout(proj_drop)
 
-    def forward(self, x):
+    def _register_relative_position_index(self, 
+                                        window_size,
+                                        num_heads,):
+        self.num_relative_distance = (2 * window_size[0] - 1) * (2 * window_size[1] - 1) + 3
+        self.relative_position_bias_table = self.create_parameter(
+                [self.num_relative_distance, num_heads], default_initializer=zeros_)  # 2*Wh-1 * 2*Ww-1, nH
+        coords_h = paddle.arange(window_size[0])
+        coords_w = paddle.arange(window_size[1])
+        coords = paddle.stack(paddle.meshgrid([coords_h, coords_w]))  # 2, Wh, Ww
+        coords_flatten = paddle.flatten(coords, 1)  # 2, Wh*Ww
+        relative_coords = coords_flatten[:, :, None] - coords_flatten[:, None, :]  # 2, Wh*Ww, Wh*Ww
+        relative_coords = relative_coords.transpose([1, 2, 0])  # Wh*Ww, Wh*Ww, 2
+        relative_coords[:, :, 0] += window_size[0] - 1  # shift to start from 0
+        relative_coords[:, :, 1] += window_size[1] - 1
+        relative_coords[:, :, 0] *= 2 * window_size[1] - 1
+        relative_position_index = \
+            paddle.zeros((window_size[0] * window_size[1] + 1, ) * 2, dtype=relative_coords.dtype)
+        relative_position_index[1:, 1:] = relative_coords.sum(-1)  # Wh*Ww, Wh*Ww
+        relative_position_index[0, 0:] = self.num_relative_distance - 3
+        relative_position_index[0:, 0] = self.num_relative_distance - 2
+        relative_position_index[0, 0] = self.num_relative_distance - 1
+
+        self.register_buffer("relative_position_index", relative_position_index)
+
+    def forward(self, x, rel_pos_bias=None):
         # B= paddle.shape(x)[0]
         N, C = x.shape[1:]
         qkv = self.qkv(x).reshape((-1, N, 3, self.num_heads, C //
@@ -147,6 +182,17 @@ class Attention(nn.Layer):
         q, k, v = qkv[0], qkv[1], qkv[2]
 
         attn = (q.matmul(k.transpose((0, 1, 3, 2)))) * self.scale
+        if hasattr(self, 'relative_position_bias_table'):
+            relative_position_bias = \
+                self.relative_position_bias_table[self.relative_position_index.reshape([-1])].reshape([
+                    self.window_size[0] * self.window_size[1] + 1,
+                    self.window_size[0] * self.window_size[1] + 1, -1])  # Wh*Ww,Wh*Ww,nH
+            relative_position_bias = relative_position_bias.transpose([2, 0, 1])  # nH, Wh*Ww, Wh*Ww
+            attn = attn + relative_position_bias.unsqueeze(0)
+        
+        if self._model_name in _model_diff['add_rel_pos_bias_in_msa'] and rel_pos_bias is not None:
+            attn = attn + rel_pos_bias
+
         attn = nn.functional.softmax(attn, axis=-1)
         attn = self.attn_drop(attn)
 
@@ -170,7 +216,8 @@ class Block(nn.Layer):
                  drop_path=0.,
                  act_layer=nn.GELU,
                  norm_layer='nn.LayerNorm',
-                 epsilon=1e-5,):
+                 epsilon=1e-5,
+                 window_size=None):
         super().__init__()
         self._model_name = model_name
         if isinstance(norm_layer, str):
@@ -186,7 +233,9 @@ class Block(nn.Layer):
             qkv_bias=qkv_bias,
             qk_scale=qk_scale,
             attn_drop=attn_drop,
-            proj_drop=drop)
+            proj_drop=drop,
+            model_name=self._model_name,
+            window_size=window_size)
         # NOTE: drop path for stochastic depth, we shall see if this is better than dropout here
         self.drop_path = DropPath(drop_path) if drop_path > 0. else Identity()
 
@@ -209,15 +258,55 @@ class Block(nn.Layer):
                        hidden_features=mlp_hidden_dim,
                        act_layer=act_layer,
                        drop=drop)
+        
 
-    def forward(self, x):
+    def forward(self, x, rel_pos_bias=None):
         if self.gamma_1 is not None:
-            x = x + self.drop_path(self.gamma_1 * self.attn(self.norm1(x)))
+            x = x + self.drop_path(self.gamma_1 * self.attn(self.norm1(x), rel_pos_bias=rel_pos_bias))
             x = x + self.drop_path(self.gamma_2 * self.mlp(self.norm2(x)))
         else:
-            x = x + self.drop_path(self.attn(self.norm1(x)))
+            x = x + self.drop_path(self.attn(self.norm1(x), rel_pos_bias=rel_pos_bias))
             x = x + self.drop_path(self.mlp(self.norm2(x)))
         return x
+
+
+class RelativePositionBias(nn.Layer):
+
+    def __init__(self, window_size, num_heads):
+        super().__init__()
+        self.window_size = window_size
+        self.num_relative_distance = (2 * window_size[0] - 1) * (2 * window_size[1] - 1) + 3
+        self.relative_position_bias_table = self.create_parameter(
+            [self.num_relative_distance, num_heads], default_initializer=zeros_)  # 2*Wh-1 * 2*Ww-1, nH
+        # cls to token & token 2 cls & cls to cls
+
+        # get pair-wise relative position index for each token inside the window
+        coords_h = paddle.arange(window_size[0])
+        coords_w = paddle.arange(window_size[1])
+        coords = paddle.stack(paddle.meshgrid([coords_h, coords_w]))  # 2, Wh, Ww
+        coords_flatten = paddle.flatten(coords, 1)  # 2, Wh*Ww
+        relative_coords = coords_flatten[:, :, None] - coords_flatten[:, None, :]  # 2, Wh*Ww, Wh*Ww
+        relative_coords = relative_coords.transpose([1, 2, 0])  # Wh*Ww, Wh*Ww, 2
+        relative_coords[:, :, 0] += window_size[0] - 1  # shift to start from 0
+        relative_coords[:, :, 1] += window_size[1] - 1
+        relative_coords[:, :, 0] *= 2 * window_size[1] - 1
+        relative_position_index = \
+            paddle.zeros((window_size[0] * window_size[1] + 1,) * 2, dtype=relative_coords.dtype)
+        relative_position_index[1:, 1:] = relative_coords.sum(-1)  # Wh*Ww, Wh*Ww
+        relative_position_index[0, 0:] = self.num_relative_distance - 3
+        relative_position_index[0:, 0] = self.num_relative_distance - 2
+        relative_position_index[0, 0] = self.num_relative_distance - 1
+
+        self.register_buffer("relative_position_index", relative_position_index)
+
+        # trunc_normal_(self.relative_position_bias_table, std=.02)
+
+    def forward(self):
+        relative_position_bias = \
+            self.relative_position_bias_table[self.relative_position_index.reshape([-1])].reshape([
+                self.window_size[0] * self.window_size[1] + 1,
+                self.window_size[0] * self.window_size[1] + 1, -1])  # Wh*Ww,Wh*Ww,nH
+        return relative_position_bias.transpose([2, 0, 1])  # nH, Wh*Ww, Wh*Ww
 
 
 class PatchEmbed(nn.Layer):
@@ -273,13 +362,18 @@ class VisionTransformer(nn.Layer):
         assert kwargs['model_name'] in _MODEL_LIST, f"model {kwargs['model_name']} is not supported"
         self._model_name = kwargs['model_name']
         self.num_features = self.embed_dim = embed_dim
-
+        _img_size = to_2tuple(img_size)
+        _patch_size = to_2tuple(patch_size)
+        self.window_size = (_img_size[0] // _patch_size[0], _img_size[1] // _patch_size[1])
         self.patch_embed = PatchEmbed(
             img_size=img_size,
             patch_size=patch_size,
             in_chans=in_chans,
             embed_dim=embed_dim)
         num_patches = self.patch_embed.num_patches
+
+        if self._model_name in _model_diff['add_rel_pos_bias_in_msa']:
+            self.rel_pos_bias = RelativePositionBias(window_size=self.window_size, num_heads=num_heads)
 
         self.ln_pre = nn.LayerNorm(embed_dim) if self._model_name in _model_diff['add_layer_norm_before_encoder'] else nn.Identity()
         
@@ -312,7 +406,8 @@ class VisionTransformer(nn.Layer):
                 attn_drop=attn_drop_rate,
                 drop_path=dpr[i],
                 norm_layer=norm_layer,
-                epsilon=epsilon) for i in range(depth)
+                epsilon=epsilon,
+                window_size=self.window_size) for i in range(depth)
         ])
 
         self.norm = eval(norm_layer)(embed_dim, epsilon=epsilon)
@@ -346,8 +441,9 @@ class VisionTransformer(nn.Layer):
         x = x + self.pos_embed
         x = self.ln_pre(x)
         x = self.pos_drop(x)
+        rel_pos_bias = self.rel_pos_bias() if hasattr(self, 'rel_pos_bias') else None
         for blk in self.blocks:
-            x = blk(x)
+            x = blk(x, rel_pos_bias=rel_pos_bias)
         x = self.norm(x)
         return x[:, 0]
 
