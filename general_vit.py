@@ -335,6 +335,15 @@ class PatchEmbed(nn.Layer):
         return x
 
 
+class Head(nn.Layer):
+    def __init__(self, model_name):
+        super().__init__()
+        self.model_name = model_name
+    
+    def forward(self, x):
+        return x
+
+
 class VisionTransformer(nn.Layer):
     """ Vision Transformer with support for patch input
     """
@@ -361,6 +370,7 @@ class VisionTransformer(nn.Layer):
         assert kwargs.get('model_name', False), 'No model_name is set'
         assert kwargs['model_name'] in _MODEL_LIST, f"model {kwargs['model_name']} is not supported"
         self._model_name = kwargs['model_name']
+        self.return_embed = kwargs.get('return_embed', True)
         self.num_features = self.embed_dim = embed_dim
         _img_size = to_2tuple(img_size)
         _patch_size = to_2tuple(patch_size)
@@ -412,9 +422,10 @@ class VisionTransformer(nn.Layer):
 
         self.norm = eval(norm_layer)(embed_dim, epsilon=epsilon)
 
-        # Classifier head
-        self.head = nn.Linear(embed_dim,
-                              class_num) if class_num > 0 else Identity()
+        # # Classifier head
+        # self.head = nn.Linear(embed_dim,
+        #                       class_num) if class_num > 0 else Identity()
+        self.head = Identity() if self.return_embed else Head(self._model_name)
 
         trunc_normal_(self.pos_embed)
         if not self._model_name in _model_diff['remove_cls_token']:
@@ -445,12 +456,12 @@ class VisionTransformer(nn.Layer):
         for blk in self.blocks:
             x = blk(x, rel_pos_bias=rel_pos_bias)
         x = self.norm(x)
-        return x[:, 0]
+        return x
 
     def forward(self, x):
         x = self.forward_features(x)
-        
-        x = self.head(x)
+        if not self.return_embed:
+            x = self.head(x)
         return x
 
 
