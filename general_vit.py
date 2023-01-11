@@ -42,16 +42,62 @@ MODEL_URLS = {
 
 __all__ = list(MODEL_URLS.keys())
 
-_MODEL_LIST = ['CLIP', 'BEiTv2', 'CAE', 'EVA', 'CoCa']
+_MODEL_LIST = ['CLIP_small_patch16_224', 
+               'BEiTv2_small_patch16_224', 
+               'CAE_small_patch16_224', 
+               'EVA_small_patch16_224', 
+               'CoCa_small_patch16_224']
 
-_model_diff = {
-    'add_layer_norm_before_encoder': ['CLIP'],
-    'add_relative_position_bias_in_msa': ['BEiTv2', 'CAE', 'EVA'],
-    'add_rel_pos_bias_in_msa': ['BEiTv2', 'CAE', 'EVA'],
-    'add_mul_gamma_to_msa_mlp': ['BEiTv2', 'CAE', 'EVA'],
-    'remove_cls_token': ['CoCa'],
+# _model_diff = {
+#     'add_layer_norm_before_encoder': ['CLIP'],
+#     'add_relative_position_bias_in_msa': ['BEiTv2', 'CAE', 'EVA'],
+#     'add_rel_pos_bias_in_msa': ['BEiTv2', 'CAE', 'EVA'],
+#     'add_mul_gamma_to_msa_mlp': ['BEiTv2', 'CAE', 'EVA'],
+#     'remove_cls_token': ['CoCa'],
+# }
+
+_model_size = None
+_model_diff = None
+
+_CLIP_diff = {
+    'add_layer_norm_before_encoder': ['small_patch16_224'],
+    'add_relative_position_bias_in_msa': [],
+    'add_rel_pos_bias_in_msa': [],
+    'add_mul_gamma_to_msa_mlp': [],
+    'remove_cls_token': [],
 }
 
+_CoCa_diff = {
+    'add_layer_norm_before_encoder': [],
+    'add_relative_position_bias_in_msa': [],
+    'add_rel_pos_bias_in_msa': [],
+    'add_mul_gamma_to_msa_mlp': [],
+    'remove_cls_token': ['small_patch16_224'],
+}
+
+_BEiTv2_diff = {
+    'add_layer_norm_before_encoder': [],
+    'add_relative_position_bias_in_msa': ['small_patch16_224'],
+    'add_rel_pos_bias_in_msa': ['small_patch16_224'],
+    'add_mul_gamma_to_msa_mlp': ['small_patch16_224'],
+    'remove_cls_token': [],
+}
+
+_CAE_diff = {
+    'add_layer_norm_before_encoder': [],
+    'add_relative_position_bias_in_msa': ['small_patch16_224'],
+    'add_rel_pos_bias_in_msa': ['small_patch16_224'],
+    'add_mul_gamma_to_msa_mlp': ['small_patch16_224'],
+    'remove_cls_token': [],
+}
+
+_EVA_diff = {
+    'add_layer_norm_before_encoder': [],
+    'add_relative_position_bias_in_msa': ['small_patch16_224'],
+    'add_rel_pos_bias_in_msa': ['small_patch16_224'],
+    'add_mul_gamma_to_msa_mlp': ['small_patch16_224'],
+    'remove_cls_token': [],
+}
 
 trunc_normal_ = TruncatedNormal(std=.02)
 normal_ = Normal
@@ -135,7 +181,7 @@ class Attention(nn.Layer):
         super().__init__()
         self._model_name = model_name
 
-        if self._model_name in _model_diff['add_relative_position_bias_in_msa']:
+        if _model_size in _model_diff['add_relative_position_bias_in_msa']:
             assert isinstance(window_size, Iterable), f'window_size must be iterable, should not be {type(window_size)}' 
             self.window_size = window_size
             self._register_relative_position_index(window_size=window_size,
@@ -190,7 +236,7 @@ class Attention(nn.Layer):
             relative_position_bias = relative_position_bias.transpose([2, 0, 1])  # nH, Wh*Ww, Wh*Ww
             attn = attn + relative_position_bias.unsqueeze(0)
         
-        if self._model_name in _model_diff['add_rel_pos_bias_in_msa'] and rel_pos_bias is not None:
+        if _model_size in _model_diff['add_rel_pos_bias_in_msa'] and rel_pos_bias is not None:
             attn = attn + rel_pos_bias
 
         attn = nn.functional.softmax(attn, axis=-1)
@@ -219,6 +265,8 @@ class Block(nn.Layer):
                  epsilon=1e-5,
                  window_size=None):
         super().__init__()
+        global _model_size
+        global _model_diff
         self._model_name = model_name
         if isinstance(norm_layer, str):
             self.norm1 = eval(norm_layer)(dim, epsilon=epsilon)
@@ -239,7 +287,7 @@ class Block(nn.Layer):
         # NOTE: drop path for stochastic depth, we shall see if this is better than dropout here
         self.drop_path = DropPath(drop_path) if drop_path > 0. else Identity()
 
-        if self._model_name in _model_diff['add_mul_gamma_to_msa_mlp']:
+        if _model_size in _model_diff['add_mul_gamma_to_msa_mlp']:
             self.gamma_1 = self.create_parameter([dim], default_initializer=nn.initializer.Constant(value=init_values))
             self.gamma_2 = self.create_parameter([dim], default_initializer=nn.initializer.Constant(value=init_values))
         else:
@@ -372,6 +420,7 @@ class VisionTransformer(nn.Layer):
     """
 
     def __init__(self,
+                 model_name,
                  img_size=224,
                  patch_size=16,
                  in_chans=3,
@@ -389,10 +438,18 @@ class VisionTransformer(nn.Layer):
                  epsilon=1e-5,
                  **kwargs):
         super().__init__()
+        global _model_diff
+        global _model_size
+        _model_split = model_name.split('_')
+        self.model_name = _model_split[0]
+        self.model_size = '_'.join(_model_split[1:])
+        _model_size = self.model_size
+        _model_diff = eval(f'_{self.model_name}_diff')
+
         self.class_num = class_num
-        assert kwargs.get('model_name', False), 'No model_name is set'
-        assert kwargs['model_name'] in _MODEL_LIST, f"model {kwargs['model_name']} is not supported"
-        self._model_name = kwargs['model_name']
+        # assert kwargs.get('model_name', False), 'No model_name is set'
+        # assert kwargs['model_name'] in _MODEL_LIST, f"model {kwargs['model_name']} is not supported"
+        # self._model_name = kwargs['model_name']
         self.return_embed = kwargs.get('return_embed', True)
         self.num_features = self.embed_dim = embed_dim
         _img_size = to_2tuple(img_size)
@@ -405,12 +462,12 @@ class VisionTransformer(nn.Layer):
             embed_dim=embed_dim)
         num_patches = self.patch_embed.num_patches
 
-        if self._model_name in _model_diff['add_rel_pos_bias_in_msa']:
+        if _model_size in _model_diff['add_rel_pos_bias_in_msa']:
             self.rel_pos_bias = RelativePositionBias(window_size=self.window_size, num_heads=num_heads)
 
-        self.ln_pre = nn.LayerNorm(embed_dim) if self._model_name in _model_diff['add_layer_norm_before_encoder'] else nn.Identity()
+        self.ln_pre = nn.LayerNorm(embed_dim) if _model_size in _model_diff['add_layer_norm_before_encoder'] else nn.Identity()
         
-        if self._model_name in _model_diff['remove_cls_token']:
+        if _model_size in _model_diff['remove_cls_token']:
             self.pos_embed = self.create_parameter(
                 shape=(1, num_patches, embed_dim), default_initializer=zeros_)
             self.cls_token = None
@@ -431,7 +488,7 @@ class VisionTransformer(nn.Layer):
             Block(
                 dim=embed_dim,
                 num_heads=num_heads,
-                model_name=self._model_name,
+                model_name=self.model_name,
                 mlp_ratio=mlp_ratio,
                 qkv_bias=qkv_bias,
                 qk_scale=qk_scale,
@@ -452,7 +509,7 @@ class VisionTransformer(nn.Layer):
                                         self.model_size, self.model_diff['head'])
 
         trunc_normal_(self.pos_embed)
-        if not self._model_name in _model_diff['remove_cls_token']:
+        if not _model_size in _model_diff['remove_cls_token']:
             trunc_normal_(self.cls_token)
         self.apply(self._init_weights)
 
@@ -469,7 +526,7 @@ class VisionTransformer(nn.Layer):
         # B = x.shape[0]
         B = paddle.shape(x)[0]
         x = self.patch_embed(x)
-        if not self._model_name in _model_diff['remove_cls_token']:
+        if not _model_size in _model_diff['remove_cls_token']:
             cls_tokens = self.cls_token.expand((B, -1, -1))
             x = paddle.concat((cls_tokens, x), axis=1)
 
@@ -605,7 +662,7 @@ def write_model(model, name):
 if __name__ == "__main__":
     import paddle
     inputs = paddle.randn((3, 3, 224, 224))
-    model = ViT_base_patch16_224(model_name="CoCa")
+    model = ViT_base_patch16_224(model_name="CAE_small_patch16_224", return_embed=True)
     output = model(inputs)
-    
-    write_model(model, f'vit_base_patch16_224_{model._model_name}')
+    print(output.shape)
+    write_model(model, f'vit_base_patch16_224_{model.model_name}')
