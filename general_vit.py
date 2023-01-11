@@ -384,12 +384,35 @@ class PatchEmbed(nn.Layer):
 
 
 class Head(nn.Layer):
-    def __init__(self, model_name):
+    def __init__(self, embed_dim, class_num, norm_layer, model_size, setting):
         super().__init__()
-        self.model_name = model_name
-    
+        self.model_size = model_size
+        self.setting = setting
+        
+        self.fc_norm = eval(norm_layer)(embed_dim, epsilon=1e-5) if model_size in setting['fc_norm'] else None
+        self.return_all_tokens = if model_size in setting['return_all_tokens']
+        self.return_patch_tokens = if model_size in setting['return_patch_tokens']
+
+        self.fc_head = nn.Linear(embed_dim, class_num) if class_num > 0 else Identity()
+
     def forward(self, x):
-        return x
+        if self.fc_norm is not None:
+            if self.return_all_tokens:
+                x = self.fc_norm(x)
+            else:
+                t = x[:, 1:]
+                if self.return_patch_tokens:
+                    x = self.fc_norm(t)
+                else:
+                    x = self.fc_norm(t.mean(1))
+        else:
+            if self.return_all_tokens:
+                x = x
+            elif self.return_patch_tokens:
+                x = x[:, 1:]
+            else:
+                x = x[:, 0]
+        return self.fc_head(x)
 
 
 class VisionTransformer(nn.Layer):
@@ -479,10 +502,11 @@ class VisionTransformer(nn.Layer):
 
         self.norm = eval(norm_layer)(embed_dim, epsilon=epsilon)
 
-        # # Classifier head
+        # # Classifier head 
         # self.head = nn.Linear(embed_dim,
         #                       class_num) if class_num > 0 else Identity()
-        self.head = Identity() if self.return_embed else Head(self.model_name)
+        self.head = Identity() if self.return_embed else Head(embed_dim, class_num, norm_layer, 
+                                        self.model_size, self.model_diff['head'])
 
         trunc_normal_(self.pos_embed)
         if not _model_size in _model_diff['remove_cls_token']:
@@ -517,8 +541,7 @@ class VisionTransformer(nn.Layer):
 
     def forward(self, x):
         x = self.forward_features(x)
-        if not self.return_embed:
-            x = self.head(x)
+        x = self.head(x)
         return x
 
 
