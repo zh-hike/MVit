@@ -28,10 +28,8 @@ AMP:
 Arch:
   name: MVit
   model_name: CoCa
-  # Attention:
-  #   add_mul_gamma_to_msa_mlp: true
-  # global:
-  #   remove_cls_token: true
+  global:
+    remove_cls_token: true
 
 
 # loss function config for traing/eval process

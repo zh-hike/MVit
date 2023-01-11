@@ -1,4 +1,5 @@
 VisionTransformer(
+  (rel_pos_bias): RelativePositionBias()
   (patch_embed): PatchEmbed(
     (proj): Conv2D(3, 768, kernel_size=[16, 16], stride=[16, 16], data_format=NCHW)
   )

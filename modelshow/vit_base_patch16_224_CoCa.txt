@@ -2,7 +2,7 @@ VisionTransformer(
   (patch_embed): PatchEmbed(
     (proj): Conv2D(3, 768, kernel_size=[16, 16], stride=[16, 16], data_format=NCHW)
   )
-  (ln_pre): Identity()
+  (ln_pre): LayerNorm(normalized_shape=[768], epsilon=1e-05)
   (pos_drop): Dropout(p=0.0, axis=None, mode=upscale_in_train)
   (blocks): LayerList(
     (0): Block(
