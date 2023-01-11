@@ -128,7 +128,8 @@ class Attention(nn.Layer):
                  qkv_bias=False,
                  qk_scale=None,
                  attn_drop=0.,
-                 proj_drop=0.):
+                 proj_drop=0.,
+                 **kwargs):
         super().__init__()
         self.num_heads = num_heads
         head_dim = dim // num_heads
@@ -170,9 +171,11 @@ class Block(nn.Layer):
                  drop_path=0.,
                  act_layer=nn.GELU,
                  norm_layer='nn.LayerNorm',
-                 epsilon=1e-5,):
+                 epsilon=1e-5,
+                 **kwargs):
         super().__init__()
-        self._model_name = model_name
+        _attention_cfg = kwargs.get('Attention', {})
+        
         if isinstance(norm_layer, str):
             self.norm1 = eval(norm_layer)(dim, epsilon=epsilon)
         elif isinstance(norm_layer, Callable):
@@ -186,11 +189,12 @@ class Block(nn.Layer):
             qkv_bias=qkv_bias,
             qk_scale=qk_scale,
             attn_drop=attn_drop,
-            proj_drop=drop)
+            proj_drop=drop,
+            **_attention_cfg)
         # NOTE: drop path for stochastic depth, we shall see if this is better than dropout here
         self.drop_path = DropPath(drop_path) if drop_path > 0. else Identity()
 
-        if self._model_name in _model_diff['add_mul_gamma_to_msa_mlp']:
+        if kwargs.get('add_mul_gamma_to_msa_mlp', False):
             self.gamma_1 = self.create_parameter([dim], default_initializer=nn.initializer.Constant(value=init_values))
             self.gamma_2 = self.create_parameter([dim], default_initializer=nn.initializer.Constant(value=init_values))
         else:
@@ -268,6 +272,9 @@ class VisionTransformer(nn.Layer):
                  epsilon=1e-5,
                  **kwargs):
         super().__init__()
+
+        _block_cfg = kwargs.get('Block', {})
+
         self.class_num = class_num
         assert kwargs.get('model_name', False), 'No model_name is set'
         assert kwargs['model_name'] in _MODEL_LIST, f"model {kwargs['model_name']} is not supported"
@@ -283,7 +290,8 @@ class VisionTransformer(nn.Layer):
 
         self.ln_pre = nn.LayerNorm(embed_dim) if self._model_name in _model_diff['add_layer_norm_before_encoder'] else nn.Identity()
         
-        if self._model_name in _model_diff['remove_cls_token']:
+        if kwargs.get('remove_cls_token', False):
+            self.remove_cls_token = True
             self.pos_embed = self.create_parameter(
                 shape=(1, num_patches, embed_dim), default_initializer=zeros_)
             self.cls_token = None
@@ -312,7 +320,9 @@ class VisionTransformer(nn.Layer):
                 attn_drop=attn_drop_rate,
                 drop_path=dpr[i],
                 norm_layer=norm_layer,
-                epsilon=epsilon) for i in range(depth)
+                epsilon=epsilon,
+                **_block_cfg,) for i in range(depth)
+                
         ])
 
         self.norm = eval(norm_layer)(embed_dim, epsilon=epsilon)
@@ -339,7 +349,7 @@ class VisionTransformer(nn.Layer):
         # B = x.shape[0]
         B = paddle.shape(x)[0]
         x = self.patch_embed(x)
-        if not self._model_name in _model_diff['remove_cls_token']:
+        if not getattr(self, 'remove_cls_token', False):
             cls_tokens = self.cls_token.expand((B, -1, -1))
             x = paddle.concat((cls_tokens, x), axis=1)
 
@@ -349,6 +359,7 @@ class VisionTransformer(nn.Layer):
         for blk in self.blocks:
             x = blk(x)
         x = self.norm(x)
+        print(x.shape)
         return x[:, 0]
 
     def forward(self, x):
@@ -471,11 +482,18 @@ def write_model(model, name):
         f.write(model.__str__())
 
 
+def read_cfg(file='GeneralRecognitionV2_PPLCNetV2_base.yaml'):
+    import yaml
+    with open(file, 'r') as f:
+        cfg = yaml.load(f, Loader=yaml.FullLoader)
+    return cfg
+
 
 if __name__ == "__main__":
     import paddle
     inputs = paddle.randn((3, 3, 224, 224))
-    model = ViT_base_patch16_224(model_name="CoCa")
+    cfg = read_cfg()
+    model = ViT_base_patch16_224(**cfg['Arch'])
     output = model(inputs)
     
     write_model(model, f'vit_base_patch16_224_{model._model_name}')
