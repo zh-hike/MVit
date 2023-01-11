@@ -211,5 +211,7 @@ VisionTransformer(
     )
   )
   (norm): LayerNorm(normalized_shape=[768], epsilon=1e-06)
-  (head): Identity()
+  (head): Head(
+    (fc_head): Linear(in_features=768, out_features=1000, dtype=float32)
+  )
 )

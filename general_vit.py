@@ -105,9 +105,9 @@ _CAE_diff = {
     'add_mul_gamma_to_msa_mlp': ['small_patch16_224'],
     'remove_cls_token': [],
     'head':{
-        'fc_norm': [],
-        'return_all_tokens':[],
-        'return_patch_tokens':[],
+        'fc_norm': ['small_patch16_224'],  # 3 x 197 x 786
+        'return_all_tokens':[],   # 3 x 197 x 1000
+        'return_patch_tokens':[],  # 3 x 196 x 1000
     }
 }
 
@@ -415,8 +415,8 @@ class Head(nn.Layer):
         self.setting = setting
         
         self.fc_norm = eval(norm_layer)(embed_dim, epsilon=1e-5) if model_size in setting['fc_norm'] else None
-        self.return_all_tokens = if model_size in setting['return_all_tokens']
-        self.return_patch_tokens = if model_size in setting['return_patch_tokens']
+        self.return_all_tokens = model_size in setting['return_all_tokens']
+        self.return_patch_tokens = model_size in setting['return_patch_tokens']
 
         self.fc_head = nn.Linear(embed_dim, class_num) if class_num > 0 else Identity()
 
@@ -687,7 +687,7 @@ def write_model(model, name):
 if __name__ == "__main__":
     import paddle
     inputs = paddle.randn((3, 3, 224, 224))
-    model = ViT_base_patch16_224(model_name="CAE_small_patch16_224", return_embed=True)
+    model = ViT_base_patch16_224(model_name="CoCa_small_patch16_224", return_embed=False)
     output = model(inputs)
     print(output.shape)
     write_model(model, f'vit_base_patch16_224_{model.model_name}')
