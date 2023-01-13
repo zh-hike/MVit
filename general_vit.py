@@ -66,6 +66,19 @@ _CLIP_diff = {
     'add_mul_gamma_to_msa_mlp': [],
     'remove_cls_token': [],
     'head':{
+        'fc_norm': ['small_patch16_224'],
+        'return_all_tokens':[],
+        'return_patch_tokens':[],
+    }
+}
+
+_MOCOV3_diff = {
+    'add_layer_norm_before_encoder': [],
+    'add_relative_position_bias_in_msa': [],
+    'add_rel_pos_bias_in_msa': [],
+    'add_mul_gamma_to_msa_mlp': [],
+    'remove_cls_token': [],
+    'head':{
         'fc_norm': [],
         'return_all_tokens':[],
         'return_patch_tokens':[],
@@ -583,6 +596,37 @@ def _load_pretrained(pretrained, model, model_url, use_ssld=False):
         )
 
 
+def MOCOV3_small(pretrained=False, use_ssld=False, **kwargs):
+    """
+    vit small in mocov3
+    """
+    model = VisionTransformer(
+        patch_size=16,
+        embed_dim=384,
+        depth=12,
+        num_heads=12,
+        mlp_ratio=4,
+        qkv_bias=True,
+        **kwargs,
+    )
+    return model
+
+def MOCOV3_base(pretrained=False, use_ssld=False, **kwargs):
+    """
+    vit base in mocov3
+    """
+    model = VisionTransformer(
+        patch_size=16,
+        embed_dim=768,
+        depth=12,
+        num_heads=12,
+        mlp_ratio=4,
+        qkv_bias=True,
+        **kwargs,
+    )
+    return model
+
+
 def ViT_small_patch16_224(pretrained=False, use_ssld=False, **kwargs):
     model = VisionTransformer(
         patch_size=16,
@@ -683,11 +727,10 @@ def write_model(model, name):
         f.write(model.__str__())
 
 
-
 if __name__ == "__main__":
     import paddle
-    inputs = paddle.randn((3, 3, 224, 224))
-    model = ViT_base_patch16_224(model_name="CoCa_small_patch16_224", return_embed=False)
+    inputs = paddle.randn((3, 3, 384, 384))
+    model = ViT_large_patch32_384(model_name="MOCOV3_large_patch32_384", return_embed=True)
     output = model(inputs)
     print(output.shape)
-    write_model(model, f'vit_base_patch16_224_{model.model_name}')
+    write_model(model, f'vit_large_patch32_384_{model.model_name}')
