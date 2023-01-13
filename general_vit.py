@@ -80,6 +80,7 @@ _MOCOV3_diff = {
     'add_rel_pos_bias_in_msa': [],
     'add_mul_gamma_to_msa_mlp': [],
     'remove_cls_token': [],
+    'replace_mlp_GELU': [],
     'head':{
         'fc_norm': [],
         'return_all_tokens':[],
@@ -649,7 +650,6 @@ def MOCOV3_base(pretrained=False, use_ssld=False, **kwargs):
         num_heads=12,
         mlp_ratio=4,
         qkv_bias=True,
-        epsilon=1e-5,
         **kwargs,
         )
     return model
