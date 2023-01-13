@@ -44,6 +44,9 @@ __all__ = list(MODEL_URLS.keys())
 
 _MODEL_LIST = ['CLIP_small_patch16_224',
                'CLIP_base_patch32_224',
+               'CLIP_base_patch16_224',
+               'CLIP_large_patch14_336',
+               'CLIP_large_patch14_224',
                'BEiTv2_small_patch16_224', 
                'CAE_small_patch16_224', 
                'EVA_small_patch16_224', 
@@ -61,14 +64,14 @@ _model_size = None
 _model_diff = None
 
 _CLIP_diff = {
-    'add_layer_norm_before_encoder': ['base_patch32_224'],
+    'add_layer_norm_before_encoder': ['base_patch32_224', 'base_patch16_224', 'large_patch14_336', 'large_patch14_224'],
     'add_relative_position_bias_in_msa': [],
     'add_rel_pos_bias_in_msa': [],
     'add_mul_gamma_to_msa_mlp': [],
     'remove_cls_token': [],
-    'replace_mlp_GELU': ['base_patch32_224'],
+    'replace_mlp_GELU': ['base_patch32_224', 'base_patch16_224', 'large_patch14_336', 'large_patch14_224'],
     'head':{
-        'fc_norm': ['small_patch16_224'],
+        'fc_norm': [],
         'return_all_tokens':[],
         'return_patch_tokens':[],
     }
@@ -614,6 +617,51 @@ def CLIP_base_patch32_224(pretrained=False, use_ssld=False, **kwargs):
         embed_dim=768,
         depth=12,
         num_heads=12,
+        mlp_ratio=4,
+        qkv_bias=True,
+        epsilon=1e-5,
+        **kwargs,
+        )
+    return model
+
+
+def CLIP_base_patch16_224(pretrained=False, use_ssld=False, **kwargs):
+    model = VisionTransformer(
+        img_size=224,
+        patch_size=16,
+        embed_dim=768,
+        depth=12,
+        num_heads=12,
+        mlp_ratio=4,
+        qkv_bias=True,
+        epsilon=1e-5,
+        **kwargs,
+        )
+    return model
+
+
+def CLIP_large_patch14_336(pretrained=False, use_ssld=False, **kwargs):
+    model = VisionTransformer(
+        img_size=336,
+        patch_size=14,
+        embed_dim=1024,
+        depth=24,
+        num_heads=16,
+        mlp_ratio=4,
+        qkv_bias=True,
+        epsilon=1e-5,
+        **kwargs,
+        )
+    return model
+
+
+def CLIP_large_patch14_224(pretrained=False, use_ssld=False, **kwargs):
+    model = VisionTransformer(
+        img_size=224,
+        patch_size=14,
+        embed_dim=1024,
+        depth=24,
+        num_heads=16,
         mlp_ratio=4,
         qkv_bias=True,
         epsilon=1e-5,
