@@ -42,7 +42,8 @@ MODEL_URLS = {
 
 __all__ = list(MODEL_URLS.keys())
 
-_MODEL_LIST = ['CLIP_small_patch16_224', 
+_MODEL_LIST = ['CLIP_small_patch16_224',
+               'CLIP_base_patch32_224',
                'BEiTv2_small_patch16_224', 
                'CAE_small_patch16_224', 
                'EVA_small_patch16_224', 
@@ -60,11 +61,12 @@ _model_size = None
 _model_diff = None
 
 _CLIP_diff = {
-    'add_layer_norm_before_encoder': ['small_patch16_224'],
+    'add_layer_norm_before_encoder': ['base_patch32_224'],
     'add_relative_position_bias_in_msa': [],
     'add_rel_pos_bias_in_msa': [],
     'add_mul_gamma_to_msa_mlp': [],
     'remove_cls_token': [],
+    'replace_mlp_GELU': ['base_patch32_224'],
     'head':{
         'fc_norm': ['small_patch16_224'],
         'return_all_tokens':[],
@@ -91,6 +93,7 @@ _CoCa_diff = {
     'add_rel_pos_bias_in_msa': [],
     'add_mul_gamma_to_msa_mlp': [],
     'remove_cls_token': ['small_patch16_224'],
+    'replace_mlp_GELU': [],
     'head':{
         'fc_norm': [],
         'return_all_tokens':[],
@@ -104,6 +107,7 @@ _BEiTv2_diff = {
     'add_rel_pos_bias_in_msa': ['small_patch16_224'],
     'add_mul_gamma_to_msa_mlp': ['small_patch16_224'],
     'remove_cls_token': [],
+    'replace_mlp_GELU': [],
     'head':{
         'fc_norm': [],
         'return_all_tokens':[],
@@ -117,6 +121,7 @@ _CAE_diff = {
     'add_rel_pos_bias_in_msa': ['small_patch16_224'],
     'add_mul_gamma_to_msa_mlp': ['small_patch16_224'],
     'remove_cls_token': [],
+    'replace_mlp_GELU': [],
     'head':{
         'fc_norm': ['small_patch16_224'],  # 3 x 197 x 786
         'return_all_tokens':[],   # 3 x 197 x 1000
@@ -130,6 +135,7 @@ _EVA_diff = {
     'add_rel_pos_bias_in_msa': ['small_patch16_224'],
     'add_mul_gamma_to_msa_mlp': ['small_patch16_224'],
     'remove_cls_token': [],
+    'replace_mlp_GELU': [],
     'head':{
         'fc_norm': [],
         'return_all_tokens':[],
@@ -182,6 +188,11 @@ class Identity(nn.Layer):
         return input
 
 
+class QuickGELU(nn.Layer):
+    def forward(self, x):
+        return x * nn.functional.sigmoid(1.702 * x)
+
+
 class Mlp(nn.Layer):
     def __init__(self,
                  in_features,
@@ -193,7 +204,7 @@ class Mlp(nn.Layer):
         out_features = out_features or in_features
         hidden_features = hidden_features or in_features
         self.fc1 = nn.Linear(in_features, hidden_features)
-        self.act = act_layer()
+        self.act = act_layer() if _model_size not in _model_diff['replace_mlp_GELU'] else QuickGELU()
         self.fc2 = nn.Linear(hidden_features, out_features)
         self.drop = nn.Dropout(drop)
 
@@ -596,6 +607,21 @@ def _load_pretrained(pretrained, model, model_url, use_ssld=False):
         )
 
 
+def CLIP_base_patch32_224(pretrained=False, use_ssld=False, **kwargs):
+    model = VisionTransformer(
+        img_size=224,
+        patch_size=32,
+        embed_dim=768,
+        depth=12,
+        num_heads=12,
+        mlp_ratio=4,
+        qkv_bias=True,
+        epsilon=1e-5,
+        **kwargs,
+        )
+    return model
+
+        
 def MOCOV3_small(pretrained=False, use_ssld=False, **kwargs):
     """
     vit small in mocov3
@@ -611,6 +637,7 @@ def MOCOV3_small(pretrained=False, use_ssld=False, **kwargs):
     )
     return model
 
+
 def MOCOV3_base(pretrained=False, use_ssld=False, **kwargs):
     """
     vit base in mocov3
@@ -622,13 +649,12 @@ def MOCOV3_base(pretrained=False, use_ssld=False, **kwargs):
         num_heads=12,
         mlp_ratio=4,
         qkv_bias=True,
+        epsilon=1e-5,
         **kwargs,
-    )
+        )
     return model
 
 
 def write_model(model, name):
     with open(f'modelshow/{name}.txt', 'w') as f:
         f.write(model.__str__())
-
-

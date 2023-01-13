@@ -1,3 +1,5 @@
+CLIP/
+modelshow/
 *.pt
 *.tar
 weights/
