@@ -80,7 +80,7 @@ _CoCa_diff = {
     'add_rel_pos_bias_in_msa': [],
     'add_mul_gamma_to_msa_mlp': [],
     'remove_cls_token': ['small_patch16_224'],
-    'replace_mlp_GELU': []
+    'replace_mlp_GELU': [],
     'head':{
         'fc_norm': [],
         'return_all_tokens':[],
@@ -191,9 +191,7 @@ class Mlp(nn.Layer):
         out_features = out_features or in_features
         hidden_features = hidden_features or in_features
         self.fc1 = nn.Linear(in_features, hidden_features)
-        
-
-        self.act = act_layer() if _model_size in _model_diff['replace_mlp_GELU'] else QuickGELU()
+        self.act = act_layer() if _model_size not in _model_diff['replace_mlp_GELU'] else QuickGELU()
         self.fc2 = nn.Linear(hidden_features, out_features)
         self.drop = nn.Dropout(drop)
 
@@ -596,111 +594,21 @@ def _load_pretrained(pretrained, model, model_url, use_ssld=False):
         )
 
 
-def ViT_small_patch16_224(pretrained=False, use_ssld=False, **kwargs):
+def CLIP_base_patch32_224(pretrained=False, use_ssld=False, **kwargs):
     model = VisionTransformer(
-        patch_size=16,
-        embed_dim=768,
-        depth=8,
-        num_heads=8,
-        mlp_ratio=3,
-        qk_scale=768**-0.5,
-        **kwargs)
-    return model
-
-
-def ViT_base_patch16_224(pretrained=False, use_ssld=False, **kwargs):
-    model = VisionTransformer(
-        patch_size=16,
-        embed_dim=768,
-        depth=12,
-        num_heads=12,
-        mlp_ratio=4,
-        qkv_bias=True,
-        epsilon=1e-6,
-        **kwargs)
-    return model
-
-
-def ViT_base_patch16_384(pretrained=False, use_ssld=False, **kwargs):
-    model = VisionTransformer(
-        img_size=384,
-        patch_size=16,
-        embed_dim=768,
-        depth=12,
-        num_heads=12,
-        mlp_ratio=4,
-        qkv_bias=True,
-        epsilon=1e-6,
-        **kwargs)
-    return model
-
-
-def ViT_base_patch32_384(pretrained=False, use_ssld=False, **kwargs):
-    model = VisionTransformer(
-        img_size=384,
+        img_size=224,
         patch_size=32,
         embed_dim=768,
         depth=12,
         num_heads=12,
         mlp_ratio=4,
         qkv_bias=True,
-        epsilon=1e-6,
-        **kwargs)
-    return model
-
-
-def ViT_large_patch16_224(pretrained=False, use_ssld=False, **kwargs):
-    model = VisionTransformer(
-        patch_size=16,
-        embed_dim=1024,
-        depth=24,
-        num_heads=16,
-        mlp_ratio=4,
-        qkv_bias=True,
-        epsilon=1e-6,
-        **kwargs)
-
-    return model
-
-
-def ViT_large_patch16_384(pretrained=False, use_ssld=False, **kwargs):
-    model = VisionTransformer(
-        img_size=384,
-        patch_size=16,
-        embed_dim=1024,
-        depth=24,
-        num_heads=16,
-        mlp_ratio=4,
-        qkv_bias=True,
-        epsilon=1e-6,
-        **kwargs)
-    return model
-
-
-def ViT_large_patch32_384(pretrained=False, use_ssld=False, **kwargs):
-    model = VisionTransformer(
-        img_size=384,
-        patch_size=32,
-        embed_dim=1024,
-        depth=24,
-        num_heads=16,
-        mlp_ratio=4,
-        qkv_bias=True,
-        epsilon=1e-6,
-        **kwargs)
+        epsilon=1e-5,
+        **kwargs,
+        )
     return model
 
 
 def write_model(model, name):
     with open(f'modelshow/{name}.txt', 'w') as f:
         f.write(model.__str__())
-
-
-
-if __name__ == "__main__":
-    import paddle
-    inputs = paddle.randn((3, 3, 224, 224))
-    model = ViT_base_patch16_224(model_name="CAE_small_patch16_224", return_embed=True)
-    output = model(inputs)
-    print(output.shape)
-    write_model(model, f'vit_base_patch16_224_{model.model_name}')
