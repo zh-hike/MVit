@@ -1,2 +1,7 @@
 CLIP/
 modelshow/
+*.pt
+*.tar
+weights/
+.vscode/
+mocov3/

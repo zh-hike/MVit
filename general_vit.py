@@ -68,6 +68,19 @@ _CLIP_diff = {
     'remove_cls_token': [],
     'replace_mlp_GELU': ['base_patch32_224'],
     'head':{
+        'fc_norm': ['small_patch16_224'],
+        'return_all_tokens':[],
+        'return_patch_tokens':[],
+    }
+}
+
+_MOCOV3_diff = {
+    'add_layer_norm_before_encoder': [],
+    'add_relative_position_bias_in_msa': [],
+    'add_rel_pos_bias_in_msa': [],
+    'add_mul_gamma_to_msa_mlp': [],
+    'remove_cls_token': [],
+    'head':{
         'fc_norm': [],
         'return_all_tokens':[],
         'return_patch_tokens':[],
@@ -110,9 +123,9 @@ _CAE_diff = {
     'remove_cls_token': [],
     'replace_mlp_GELU': [],
     'head':{
-        'fc_norm': [],
-        'return_all_tokens':[],
-        'return_patch_tokens':[],
+        'fc_norm': ['small_patch16_224'],  # 3 x 197 x 786
+        'return_all_tokens':[],   # 3 x 197 x 1000
+        'return_patch_tokens':[],  # 3 x 196 x 1000
     }
 }
 
@@ -598,6 +611,39 @@ def CLIP_base_patch32_224(pretrained=False, use_ssld=False, **kwargs):
     model = VisionTransformer(
         img_size=224,
         patch_size=32,
+        embed_dim=768,
+        depth=12,
+        num_heads=12,
+        mlp_ratio=4,
+        qkv_bias=True,
+        epsilon=1e-5,
+        **kwargs,
+        )
+    return model
+
+        
+def MOCOV3_small(pretrained=False, use_ssld=False, **kwargs):
+    """
+    vit small in mocov3
+    """
+    model = VisionTransformer(
+        patch_size=16,
+        embed_dim=384,
+        depth=12,
+        num_heads=12,
+        mlp_ratio=4,
+        qkv_bias=True,
+        **kwargs,
+    )
+    return model
+
+
+def MOCOV3_base(pretrained=False, use_ssld=False, **kwargs):
+    """
+    vit base in mocov3
+    """
+    model = VisionTransformer(
+        patch_size=16,
         embed_dim=768,
         depth=12,
         num_heads=12,
