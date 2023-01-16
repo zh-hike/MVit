@@ -61,7 +61,7 @@ def _register_forward_post_hook_torch(names, model):
     return handles
 
 def add_log(log, names):
-    # assert len(names) == len(_feats)
+    assert len(names) == len(_feats), f"length of names is {len(names)}, bug length of _feats is {len(_feats)}"
     for name, feat in zip(names, _feats):
         if '.' in name and name.split('.')[-1]!='blocks':
             log.add(name, feat)
@@ -101,7 +101,7 @@ def forward(inputs, paddle_model, torch_model, save_path='./align', torch_featur
     torch_handles = _register_forward_post_hook_torch(names, torch_model)
     with paddle.no_grad():
         paddle_out = paddle_model(paddle_inputs)
-    add_log(paddle_log, names)
+    # add_log(paddle_log, names)
     clean_handles(paddle_handles)
     _feats.clear()
     paddle_log.add('out', paddle_out.numpy())
@@ -119,7 +119,7 @@ def forward(inputs, paddle_model, torch_model, save_path='./align', torch_featur
         with torch.no_grad():
             torch_out = torch_model(torch_inputs)
 
-    add_log(torch_log, names)
+    # add_log(torch_log, names)
     clean_handles(torch_handles)
     _feats.clear()
     torch_log.add('out', torch_out.detach().cpu().numpy())

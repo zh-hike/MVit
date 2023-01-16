@@ -20,6 +20,7 @@ from collections.abc import Callable, Iterable
 import numpy as np
 import paddle
 import paddle.nn as nn
+import sys
 from paddle.nn.initializer import TruncatedNormal, Constant, Normal
 
 
@@ -135,6 +136,20 @@ _EVA_diff = {
     'add_relative_position_bias_in_msa': ['small_patch16_224'],
     'add_rel_pos_bias_in_msa': ['small_patch16_224'],
     'add_mul_gamma_to_msa_mlp': ['small_patch16_224'],
+    'remove_cls_token': [],
+    'replace_mlp_GELU': [],
+    'head':{
+        'fc_norm': [],
+        'return_all_tokens':[],
+        'return_patch_tokens':[],
+    }
+}
+
+_MAE_diff = {
+    'add_layer_norm_before_encoder': [],
+    'add_relative_position_bias_in_msa': [],
+    'add_rel_pos_bias_in_msa': [],
+    'add_mul_gamma_to_msa_mlp': [],
     'remove_cls_token': [],
     'replace_mlp_GELU': [],
     'head':{
@@ -609,7 +624,9 @@ def _load_pretrained(pretrained, model, model_url, use_ssld=False):
 
 
 def CLIP_base_patch32_224(pretrained=False, use_ssld=False, **kwargs):
+    model_name = sys._getframe().f_code.co_name
     model = VisionTransformer(
+        model_name=model_name,
         img_size=224,
         patch_size=32,
         embed_dim=768,
@@ -627,7 +644,9 @@ def MOCOV3_small(pretrained=False, use_ssld=False, **kwargs):
     """
     vit small in mocov3
     """
+    model_name = sys._getframe().f_code.co_name
     model = VisionTransformer(
+        model_name=model_name,
         patch_size=16,
         embed_dim=384,
         depth=12,
@@ -643,11 +662,58 @@ def MOCOV3_base(pretrained=False, use_ssld=False, **kwargs):
     """
     vit base in mocov3
     """
+    model_name = sys._getframe().f_code.co_name
     model = VisionTransformer(
+        model_name=model_name,
         patch_size=16,
         embed_dim=768,
         depth=12,
         num_heads=12,
+        mlp_ratio=4,
+        qkv_bias=True,
+        **kwargs,
+        )
+    return model
+
+
+def MAE_base_patch16(pretrained=False, use_ssld=False, **kwargs):
+    model_name = sys._getframe().f_code.co_name
+    model = VisionTransformer(
+        model_name=model_name,
+        patch_size=16,
+        embed_dim=768,
+        depth=12,
+        num_heads=12,
+        mlp_ratio=4,
+        qkv_bias=True,
+        **kwargs,
+        )
+    return model
+
+
+def MAE_large_patch16(pretrained=False, use_ssld=False, **kwargs):
+    model_name = sys._getframe().f_code.co_name
+    model = VisionTransformer(
+        model_name=model_name,
+        patch_size=16,
+        embed_dim=1024,
+        depth=24,
+        num_heads=16,
+        mlp_ratio=4,
+        qkv_bias=True,
+        **kwargs,
+        )
+    return model
+
+
+def MAE_huge_patch14(pretrained=False, use_ssld=False, **kwargs):
+    model_name = sys._getframe().f_code.co_name
+    model = VisionTransformer(
+        model_name=model_name,
+        patch_size=14,
+        embed_dim=1280,
+        depth=32,
+        num_heads=16,
         mlp_ratio=4,
         qkv_bias=True,
         **kwargs,
