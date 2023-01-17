@@ -24,20 +24,22 @@ import sys
 from paddle.nn.initializer import TruncatedNormal, Constant, Normal
 
 
-MODEL_URLS = {}
+MODEL_URLS = {"CLIP_small_patch16_224":None,
+              "CLIP_base_patch32_224":None,
+              "CLIP_base_patch16_224":None,
+              "CLIP_large_patch14_336":None,
+              "CLIP_large_patch14_224":None,
+              "BEiTv2_base_patch16_224":None,
+              "BEiTv2_large_patch16_224":None,
+              "CAE_base_patch16_224":None,
+              "EVA_small_patch16_224":None,
+              "MOCOV3_small":None,
+              "MOCOV3_base":None,
+              "MAE_huge_patch14":None,
+              "MAE_large_patch16":None,
+              "MAE_base_patch16":None}
 
 __all__ = list(MODEL_URLS.keys())
-
-_MODEL_LIST = ['CLIP_small_patch16_224',
-               'CLIP_base_patch32_224',
-               'CLIP_base_patch16_224',
-               'CLIP_large_patch14_336',
-               'CLIP_large_patch14_224',
-               'BEiTv2_base_patch16_224',
-               'BEiTv2_large_patch16_224',
-               'CAE_base_patch16_224',
-               'EVA_small_patch16_224', 
-               'CoCa_small_patch16_224']
 
 _model_size = None
 _model_diff = None
@@ -63,6 +65,7 @@ _MOCOV3_diff = {
     'add_shared_rel_pos_bias': [],
     'add_mul_gamma_to_msa_mlp': [],
     'remove_cls_token': [],
+    'remove_abs_pos_emb':[],
     'replace_mlp_GELU': [],
     'head':{
         'fc_norm': [],
@@ -134,12 +137,13 @@ _EVA_diff = {
 _MAE_diff = {
     'add_layer_norm_before_encoder': [],
     'add_relative_position_bias_in_msa': [],
-    'add_rel_pos_bias_in_msa': [],
+    'add_shared_rel_pos_bias': [],
     'add_mul_gamma_to_msa_mlp': [],
     'remove_cls_token': [],
+    'remove_abs_pos_emb': [],
     'replace_mlp_GELU': [],
     'head':{
-        'fc_norm': [],
+        'fc_norm': ['huge_patch14'],
         'return_all_tokens':[],
         'return_patch_tokens':[],
     }
@@ -860,6 +864,11 @@ def EVA_huge_patch14(pretrained=False, use_ssld=False, **kwargs):
         class_num=0,
         **kwargs,
     )
+    _load_pretrained(
+        pretrained,
+        model,
+        MODEL_URLS[model_name],
+        use_ssld=use_ssld)
     return model
 
 def CAE_base_patch16_224(pretrained=False, use_ssld=False, **kwargs):
