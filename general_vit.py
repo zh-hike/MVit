@@ -45,7 +45,11 @@ __all__ = list(MODEL_URLS.keys())
 
 _MODEL_LIST = ['CLIP_small_patch16_224',
                'CLIP_base_patch32_224',
-               'BEiTv2_small_patch16_224', 
+               'CLIP_base_patch16_224',
+               'CLIP_large_patch14_336',
+               'CLIP_large_patch14_224',
+               'BEiTv2_base_patch16_224',
+               'BEiTv2_large_patch16_224',
                'CAE_small_patch16_224', 
                'EVA_small_patch16_224', 
                'CoCa_small_patch16_224']
@@ -62,14 +66,15 @@ _model_size = None
 _model_diff = None
 
 _CLIP_diff = {
-    'add_layer_norm_before_encoder': ['base_patch32_224'],
+    'add_layer_norm_before_encoder': ['base_patch32_224', 'base_patch16_224', 'large_patch14_336', 'large_patch14_224'],
     'add_relative_position_bias_in_msa': [],
-    'add_rel_pos_bias_in_msa': [],
+    'add_shared_rel_pos_bias': [],
     'add_mul_gamma_to_msa_mlp': [],
     'remove_cls_token': [],
-    'replace_mlp_GELU': ['base_patch32_224'],
+    'remove_abs_pos_emb': [],
+    'replace_mlp_GELU': ['base_patch32_224', 'base_patch16_224', 'large_patch14_336', 'large_patch14_224'],
     'head':{
-        'fc_norm': ['small_patch16_224'],
+        'fc_norm': [],
         'return_all_tokens':[],
         'return_patch_tokens':[],
     }
@@ -78,7 +83,7 @@ _CLIP_diff = {
 _MOCOV3_diff = {
     'add_layer_norm_before_encoder': [],
     'add_relative_position_bias_in_msa': [],
-    'add_rel_pos_bias_in_msa': [],
+    'add_shared_rel_pos_bias': [],
     'add_mul_gamma_to_msa_mlp': [],
     'remove_cls_token': [],
     'replace_mlp_GELU': [],
@@ -92,9 +97,10 @@ _MOCOV3_diff = {
 _CoCa_diff = {
     'add_layer_norm_before_encoder': [],
     'add_relative_position_bias_in_msa': [],
-    'add_rel_pos_bias_in_msa': [],
+    'add_shared_rel_pos_bias': [],
     'add_mul_gamma_to_msa_mlp': [],
     'remove_cls_token': ['small_patch16_224'],
+    'remove_abs_pos_emb': [],
     'replace_mlp_GELU': [],
     'head':{
         'fc_norm': [],
@@ -105,10 +111,11 @@ _CoCa_diff = {
 
 _BEiTv2_diff = {
     'add_layer_norm_before_encoder': [],
-    'add_relative_position_bias_in_msa': ['small_patch16_224'],
-    'add_rel_pos_bias_in_msa': ['small_patch16_224'],
-    'add_mul_gamma_to_msa_mlp': ['small_patch16_224'],
+    'add_relative_position_bias_in_msa': ['base_patch16_224', 'large_patch16_224'],
+    'add_shared_rel_pos_bias': [],
+    'add_mul_gamma_to_msa_mlp': ['base_patch16_224', 'large_patch16_224'],
     'remove_cls_token': [],
+    'remove_abs_pos_emb': ['base_patch16_224', 'large_patch16_224'],
     'replace_mlp_GELU': [],
     'head':{
         'fc_norm': [],
@@ -120,9 +127,10 @@ _BEiTv2_diff = {
 _CAE_diff = {
     'add_layer_norm_before_encoder': [],
     'add_relative_position_bias_in_msa': ['small_patch16_224'],
-    'add_rel_pos_bias_in_msa': ['small_patch16_224'],
+    'add_shared_rel_pos_bias': ['small_patch16_224'],
     'add_mul_gamma_to_msa_mlp': ['small_patch16_224'],
     'remove_cls_token': [],
+    'remove_abs_pos_emb': [],
     'replace_mlp_GELU': [],
     'head':{
         'fc_norm': ['small_patch16_224'],  # 3 x 197 x 786
@@ -134,9 +142,10 @@ _CAE_diff = {
 _EVA_diff = {
     'add_layer_norm_before_encoder': [],
     'add_relative_position_bias_in_msa': ['small_patch16_224'],
-    'add_rel_pos_bias_in_msa': ['small_patch16_224'],
+    'add_shared_rel_pos_bias': ['small_patch16_224'],
     'add_mul_gamma_to_msa_mlp': ['small_patch16_224'],
     'remove_cls_token': [],
+    'remove_abs_pos_emb': [],
     'replace_mlp_GELU': [],
     'head':{
         'fc_norm': [],
@@ -301,7 +310,7 @@ class Attention(nn.Layer):
             relative_position_bias = relative_position_bias.transpose([2, 0, 1])  # nH, Wh*Ww, Wh*Ww
             attn = attn + relative_position_bias.unsqueeze(0)
         
-        if _model_size in _model_diff['add_rel_pos_bias_in_msa'] and rel_pos_bias is not None:
+        if _model_size in _model_diff['add_shared_rel_pos_bias'] and rel_pos_bias is not None:
             attn = attn + rel_pos_bias
 
         attn = nn.functional.softmax(attn, axis=-1)
@@ -527,7 +536,7 @@ class VisionTransformer(nn.Layer):
             embed_dim=embed_dim)
         num_patches = self.patch_embed.num_patches
 
-        if _model_size in _model_diff['add_rel_pos_bias_in_msa']:
+        if _model_size in _model_diff['add_shared_rel_pos_bias']:
             self.rel_pos_bias = RelativePositionBias(window_size=self.window_size, num_heads=num_heads)
 
         self.ln_pre = nn.LayerNorm(embed_dim) if _model_size in _model_diff['add_layer_norm_before_encoder'] else nn.Identity()
@@ -543,7 +552,10 @@ class VisionTransformer(nn.Layer):
                 shape=(1, 1, embed_dim), default_initializer=zeros_)
             self.add_parameter("cls_token", self.cls_token)
 
-        self.add_parameter("pos_embed", self.pos_embed)
+        if _model_size in _model_diff['remove_abs_pos_emb']:
+            self.pos_embed = None
+        else:
+            self.add_parameter("pos_embed", self.pos_embed)
         
         self.pos_drop = nn.Dropout(p=drop_rate)
 
@@ -572,8 +584,8 @@ class VisionTransformer(nn.Layer):
         #                       class_num) if class_num > 0 else Identity()
         self.head = Identity() if self.return_embed else Head(embed_dim, class_num, norm_layer, 
                                         self.model_size, _model_diff['head'])
-
-        trunc_normal_(self.pos_embed)
+        if self.pos_embed is not None:
+            trunc_normal_(self.pos_embed)
         if not _model_size in _model_diff['remove_cls_token']:
             trunc_normal_(self.cls_token)
         self.apply(self._init_weights)
@@ -595,7 +607,9 @@ class VisionTransformer(nn.Layer):
             cls_tokens = self.cls_token.expand((B, -1, -1))
             x = paddle.concat((cls_tokens, x), axis=1)
 
-        x = x + self.pos_embed
+        if self.pos_embed is not None:
+            x = x + self.pos_embed
+            
         x = self.ln_pre(x)
         x = self.pos_drop(x)
         rel_pos_bias = self.rel_pos_bias() if hasattr(self, 'rel_pos_bias') else None
@@ -635,6 +649,81 @@ def CLIP_base_patch32_224(pretrained=False, use_ssld=False, **kwargs):
         mlp_ratio=4,
         qkv_bias=True,
         epsilon=1e-5,
+        **kwargs,
+        )
+    return model
+
+
+def CLIP_base_patch16_224(pretrained=False, use_ssld=False, **kwargs):
+    model = VisionTransformer(
+        img_size=224,
+        patch_size=16,
+        embed_dim=768,
+        depth=12,
+        num_heads=12,
+        mlp_ratio=4,
+        qkv_bias=True,
+        epsilon=1e-5,
+        **kwargs,
+        )
+    return model
+
+
+def CLIP_large_patch14_336(pretrained=False, use_ssld=False, **kwargs):
+    model = VisionTransformer(
+        img_size=336,
+        patch_size=14,
+        embed_dim=1024,
+        depth=24,
+        num_heads=16,
+        mlp_ratio=4,
+        qkv_bias=True,
+        epsilon=1e-5,
+        **kwargs,
+        )
+    return model
+
+
+def CLIP_large_patch14_224(pretrained=False, use_ssld=False, **kwargs):
+    model = VisionTransformer(
+        img_size=224,
+        patch_size=14,
+        embed_dim=1024,
+        depth=24,
+        num_heads=16,
+        mlp_ratio=4,
+        qkv_bias=True,
+        epsilon=1e-5,
+        **kwargs,
+        )
+    return model
+
+
+def BEiTv2_base_patch16_224(pretrained=False, use_ssld=False, **kwargs):
+    model = VisionTransformer(
+        img_size=224,
+        patch_size=16,
+        embed_dim=768,
+        depth=12,
+        num_heads=12,
+        mlp_ratio=4,
+        qkv_bias=True,
+        epsilon=1e-6,
+        **kwargs,
+        )
+    return model
+
+
+def BEiTv2_large_patch16_224(pretrained=False, use_ssld=False, **kwargs):
+    model = VisionTransformer(
+        img_size=224,
+        patch_size=16,
+        embed_dim=1024,
+        depth=24,
+        num_heads=16,
+        mlp_ratio=4,
+        qkv_bias=True,
+        epsilon=1e-6,
         **kwargs,
         )
     return model
