@@ -655,7 +655,9 @@ def CLIP_base_patch32_224(pretrained=False, use_ssld=False, **kwargs):
 
 
 def CLIP_base_patch16_224(pretrained=False, use_ssld=False, **kwargs):
+    model_name = sys._getframe().f_code.co_name
     model = VisionTransformer(
+        model_name=model_name,
         img_size=224,
         patch_size=16,
         embed_dim=768,
@@ -670,7 +672,9 @@ def CLIP_base_patch16_224(pretrained=False, use_ssld=False, **kwargs):
 
 
 def CLIP_large_patch14_336(pretrained=False, use_ssld=False, **kwargs):
+    model_name = sys._getframe().f_code.co_name
     model = VisionTransformer(
+        model_name=model_name,
         img_size=336,
         patch_size=14,
         embed_dim=1024,
@@ -685,7 +689,9 @@ def CLIP_large_patch14_336(pretrained=False, use_ssld=False, **kwargs):
 
 
 def CLIP_large_patch14_224(pretrained=False, use_ssld=False, **kwargs):
+    model_name = sys._getframe().f_code.co_name
     model = VisionTransformer(
+        model_name=model_name,
         img_size=224,
         patch_size=14,
         embed_dim=1024,
@@ -700,7 +706,9 @@ def CLIP_large_patch14_224(pretrained=False, use_ssld=False, **kwargs):
 
 
 def BEiTv2_base_patch16_224(pretrained=False, use_ssld=False, **kwargs):
+    model_name = sys._getframe().f_code.co_name
     model = VisionTransformer(
+        model_name=model_name,
         img_size=224,
         patch_size=16,
         embed_dim=768,
@@ -715,7 +723,9 @@ def BEiTv2_base_patch16_224(pretrained=False, use_ssld=False, **kwargs):
 
 
 def BEiTv2_large_patch16_224(pretrained=False, use_ssld=False, **kwargs):
+    model_name = sys._getframe().f_code.co_name
     model = VisionTransformer(
+        model_name=model_name,
         img_size=224,
         patch_size=16,
         embed_dim=1024,
