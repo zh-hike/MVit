@@ -626,7 +626,7 @@ def CLIP_base_patch32_224(pretrained=False, use_ssld=False, **kwargs):
     _load_pretrained(
         pretrained,
         model,
-        MODEL_URLS["ViT_large_patch32_384"],
+        MODEL_URLS[model_name],
         use_ssld=use_ssld)
     return model
 
@@ -648,7 +648,7 @@ def CLIP_base_patch16_224(pretrained=False, use_ssld=False, **kwargs):
     _load_pretrained(
         pretrained,
         model,
-        MODEL_URLS["ViT_large_patch32_384"],
+        MODEL_URLS[model_name],
         use_ssld=use_ssld)
     return model
 
@@ -670,7 +670,7 @@ def CLIP_large_patch14_336(pretrained=False, use_ssld=False, **kwargs):
     _load_pretrained(
         pretrained,
         model,
-        MODEL_URLS["ViT_large_patch32_384"],
+        MODEL_URLS[model_name],
         use_ssld=use_ssld)
     return model
 
@@ -692,7 +692,7 @@ def CLIP_large_patch14_224(pretrained=False, use_ssld=False, **kwargs):
     _load_pretrained(
         pretrained,
         model,
-        MODEL_URLS["ViT_large_patch32_384"],
+        MODEL_URLS[model_name],
         use_ssld=use_ssld)
     return model
 
@@ -714,7 +714,7 @@ def BEiTv2_base_patch16_224(pretrained=False, use_ssld=False, **kwargs):
     _load_pretrained(
         pretrained,
         model,
-        MODEL_URLS["ViT_large_patch32_384"],
+        MODEL_URLS[model_name],
         use_ssld=use_ssld)
     return model
 
@@ -736,7 +736,7 @@ def BEiTv2_large_patch16_224(pretrained=False, use_ssld=False, **kwargs):
     _load_pretrained(
         pretrained,
         model,
-        MODEL_URLS["ViT_large_patch32_384"],
+        MODEL_URLS[model_name],
         use_ssld=use_ssld)
     return model
 
@@ -759,7 +759,7 @@ def MOCOV3_small(pretrained=False, use_ssld=False, **kwargs):
     _load_pretrained(
         pretrained,
         model,
-        MODEL_URLS["ViT_large_patch32_384"],
+        MODEL_URLS[model_name],
         use_ssld=use_ssld)
     return model
 
@@ -782,7 +782,7 @@ def MOCOV3_base(pretrained=False, use_ssld=False, **kwargs):
     _load_pretrained(
         pretrained,
         model,
-        MODEL_URLS["ViT_large_patch32_384"],
+        MODEL_URLS[model_name],
         use_ssld=use_ssld)
     return model
 
@@ -802,7 +802,7 @@ def MAE_base_patch16(pretrained=False, use_ssld=False, **kwargs):
     _load_pretrained(
         pretrained,
         model,
-        MODEL_URLS["ViT_large_patch32_384"],
+        MODEL_URLS[model_name],
         use_ssld=use_ssld)
     return model
 
@@ -822,7 +822,7 @@ def MAE_large_patch16(pretrained=False, use_ssld=False, **kwargs):
     _load_pretrained(
         pretrained,
         model,
-        MODEL_URLS["ViT_large_patch32_384"],
+        MODEL_URLS[model_name],
         use_ssld=use_ssld)
     return model
 
@@ -842,7 +842,7 @@ def MAE_huge_patch14(pretrained=False, use_ssld=False, **kwargs):
     _load_pretrained(
         pretrained,
         model,
-        MODEL_URLS["ViT_large_patch32_384"],
+        MODEL_URLS[model_name],
         use_ssld=use_ssld)
     return model
 
@@ -864,6 +864,6 @@ def CAE_base_patch16_224(pretrained=False, use_ssld=False, **kwargs):
     _load_pretrained(
         pretrained,
         model,
-        MODEL_URLS["ViT_large_patch32_384"],
+        MODEL_URLS[model_name],
         use_ssld=use_ssld)
     return model
