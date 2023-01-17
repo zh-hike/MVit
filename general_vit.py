@@ -141,14 +141,14 @@ _CAE_diff = {
 
 _EVA_diff = {
     'add_layer_norm_before_encoder': [],
-    'add_relative_position_bias_in_msa': ['small_patch16_224'],
-    'add_shared_rel_pos_bias': ['small_patch16_224'],
-    'add_mul_gamma_to_msa_mlp': ['small_patch16_224'],
+    'add_relative_position_bias_in_msa': [],
+    'add_shared_rel_pos_bias': [],
+    'add_mul_gamma_to_msa_mlp': [],
     'remove_cls_token': [],
     'remove_abs_pos_emb': [],
     'replace_mlp_GELU': [],
     'head':{
-        'fc_norm': [],
+        'fc_norm': ['huge_patch14'],
         'return_all_tokens':[],
         'return_patch_tokens':[],
     }
@@ -819,6 +819,21 @@ def MAE_huge_patch14(pretrained=False, use_ssld=False, **kwargs):
         )
     return model
 
+def EVA_huge_patch14(pretrained=False, use_ssld=False, **kwargs):
+    model_name = sys._getframe().f_code.co_name
+    model = VisionTransformer(
+        model_name=model_name,
+        patch_size=14,
+        embed_dim=1408,
+        depth=40,
+        num_heads=16,
+        init_values=None,
+        mlp_ratio=4.3637,
+        qkv_bias=True,
+        class_num=0,
+        **kwargs,
+    )
+    return model
 
 def write_model(model, name):
     with open(f'modelshow/{name}.txt', 'w') as f:
