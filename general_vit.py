@@ -24,22 +24,7 @@ import sys
 from paddle.nn.initializer import TruncatedNormal, Constant, Normal
 
 
-MODEL_URLS = {
-    "ViT_small_patch16_224":
-    "https://paddle-imagenet-models-name.bj.bcebos.com/dygraph/ViT_small_patch16_224_pretrained.pdparams",
-    "ViT_base_patch16_224":
-    "https://paddle-imagenet-models-name.bj.bcebos.com/dygraph/ViT_base_patch16_224_pretrained.pdparams",
-    "ViT_base_patch16_384":
-    "https://paddle-imagenet-models-name.bj.bcebos.com/dygraph/ViT_base_patch16_384_pretrained.pdparams",
-    "ViT_base_patch32_384":
-    "https://paddle-imagenet-models-name.bj.bcebos.com/dygraph/ViT_base_patch32_384_pretrained.pdparams",
-    "ViT_large_patch16_224":
-    "https://paddle-imagenet-models-name.bj.bcebos.com/dygraph/ViT_large_patch16_224_pretrained.pdparams",
-    "ViT_large_patch16_384":
-    "https://paddle-imagenet-models-name.bj.bcebos.com/dygraph/ViT_large_patch16_384_pretrained.pdparams",
-    "ViT_large_patch32_384":
-    "https://paddle-imagenet-models-name.bj.bcebos.com/dygraph/ViT_large_patch32_384_pretrained.pdparams",
-}
+MODEL_URLS = {}
 
 __all__ = list(MODEL_URLS.keys())
 
@@ -50,17 +35,9 @@ _MODEL_LIST = ['CLIP_small_patch16_224',
                'CLIP_large_patch14_224',
                'BEiTv2_base_patch16_224',
                'BEiTv2_large_patch16_224',
-               'CAE_small_patch16_224', 
+               'CAE_base_patch16_224',
                'EVA_small_patch16_224', 
                'CoCa_small_patch16_224']
-
-# _model_diff = {
-#     'add_layer_norm_before_encoder': ['CLIP'],
-#     'add_relative_position_bias_in_msa': ['BEiTv2', 'CAE', 'EVA'],
-#     'add_rel_pos_bias_in_msa': ['BEiTv2', 'CAE', 'EVA'],
-#     'add_mul_gamma_to_msa_mlp': ['BEiTv2', 'CAE', 'EVA'],
-#     'remove_cls_token': ['CoCa'],
-# }
 
 _model_size = None
 _model_diff = None
@@ -126,14 +103,14 @@ _BEiTv2_diff = {
 
 _CAE_diff = {
     'add_layer_norm_before_encoder': [],
-    'add_relative_position_bias_in_msa': ['small_patch16_224'],
-    'add_shared_rel_pos_bias': ['small_patch16_224'],
-    'add_mul_gamma_to_msa_mlp': ['small_patch16_224'],
+    'add_relative_position_bias_in_msa': ['base_patch16_224'],
+    'add_shared_rel_pos_bias': [],
+    'add_mul_gamma_to_msa_mlp': ['base_patch16_224'],
     'remove_cls_token': [],
     'remove_abs_pos_emb': [],
     'replace_mlp_GELU': [],
     'head':{
-        'fc_norm': ['small_patch16_224'],  # 3 x 197 x 786
+        'fc_norm': [],  # 3 x 197 x 786
         'return_all_tokens':[],   # 3 x 197 x 1000
         'return_patch_tokens':[],  # 3 x 196 x 1000
     }
@@ -521,9 +498,6 @@ class VisionTransformer(nn.Layer):
         _model_diff = eval(f'_{self.model_name}_diff')
 
         self.class_num = class_num
-        # assert kwargs.get('model_name', False), 'No model_name is set'
-        # assert kwargs['model_name'] in _MODEL_LIST, f"model {kwargs['model_name']} is not supported"
-        # self._model_name = kwargs['model_name']
         self.return_embed = kwargs.get('return_embed', True)
         self.num_features = self.embed_dim = embed_dim
         _img_size = to_2tuple(img_size)
@@ -579,11 +553,9 @@ class VisionTransformer(nn.Layer):
 
         self.norm = eval(norm_layer)(embed_dim, epsilon=epsilon)
 
-        # # Classifier head 
-        # self.head = nn.Linear(embed_dim,
-        #                       class_num) if class_num > 0 else Identity()
         self.head = Identity() if self.return_embed else Head(embed_dim, class_num, norm_layer, 
                                         self.model_size, _model_diff['head'])
+
         if self.pos_embed is not None:
             trunc_normal_(self.pos_embed)
         if not _model_size in _model_diff['remove_cls_token']:
@@ -651,6 +623,11 @@ def CLIP_base_patch32_224(pretrained=False, use_ssld=False, **kwargs):
         epsilon=1e-5,
         **kwargs,
         )
+    _load_pretrained(
+        pretrained,
+        model,
+        MODEL_URLS[model_name],
+        use_ssld=use_ssld)
     return model
 
 
@@ -668,6 +645,11 @@ def CLIP_base_patch16_224(pretrained=False, use_ssld=False, **kwargs):
         epsilon=1e-5,
         **kwargs,
         )
+    _load_pretrained(
+        pretrained,
+        model,
+        MODEL_URLS[model_name],
+        use_ssld=use_ssld)
     return model
 
 
@@ -685,6 +667,11 @@ def CLIP_large_patch14_336(pretrained=False, use_ssld=False, **kwargs):
         epsilon=1e-5,
         **kwargs,
         )
+    _load_pretrained(
+        pretrained,
+        model,
+        MODEL_URLS[model_name],
+        use_ssld=use_ssld)
     return model
 
 
@@ -702,6 +689,11 @@ def CLIP_large_patch14_224(pretrained=False, use_ssld=False, **kwargs):
         epsilon=1e-5,
         **kwargs,
         )
+    _load_pretrained(
+        pretrained,
+        model,
+        MODEL_URLS[model_name],
+        use_ssld=use_ssld)
     return model
 
 
@@ -719,6 +711,11 @@ def BEiTv2_base_patch16_224(pretrained=False, use_ssld=False, **kwargs):
         epsilon=1e-6,
         **kwargs,
         )
+    _load_pretrained(
+        pretrained,
+        model,
+        MODEL_URLS[model_name],
+        use_ssld=use_ssld)
     return model
 
 
@@ -736,6 +733,11 @@ def BEiTv2_large_patch16_224(pretrained=False, use_ssld=False, **kwargs):
         epsilon=1e-6,
         **kwargs,
         )
+    _load_pretrained(
+        pretrained,
+        model,
+        MODEL_URLS[model_name],
+        use_ssld=use_ssld)
     return model
 
         
@@ -753,7 +755,12 @@ def MOCOV3_small(pretrained=False, use_ssld=False, **kwargs):
         mlp_ratio=4,
         qkv_bias=True,
         **kwargs,
-    )
+        )
+    _load_pretrained(
+        pretrained,
+        model,
+        MODEL_URLS[model_name],
+        use_ssld=use_ssld)
     return model
 
 
@@ -772,6 +779,11 @@ def MOCOV3_base(pretrained=False, use_ssld=False, **kwargs):
         qkv_bias=True,
         **kwargs,
         )
+    _load_pretrained(
+        pretrained,
+        model,
+        MODEL_URLS[model_name],
+        use_ssld=use_ssld)
     return model
 
 
@@ -787,6 +799,11 @@ def MAE_base_patch16(pretrained=False, use_ssld=False, **kwargs):
         qkv_bias=True,
         **kwargs,
         )
+    _load_pretrained(
+        pretrained,
+        model,
+        MODEL_URLS[model_name],
+        use_ssld=use_ssld)
     return model
 
 
@@ -802,6 +819,11 @@ def MAE_large_patch16(pretrained=False, use_ssld=False, **kwargs):
         qkv_bias=True,
         **kwargs,
         )
+    _load_pretrained(
+        pretrained,
+        model,
+        MODEL_URLS[model_name],
+        use_ssld=use_ssld)
     return model
 
 
@@ -817,6 +839,11 @@ def MAE_huge_patch14(pretrained=False, use_ssld=False, **kwargs):
         qkv_bias=True,
         **kwargs,
         )
+    _load_pretrained(
+        pretrained,
+        model,
+        MODEL_URLS[model_name],
+        use_ssld=use_ssld)
     return model
 
 def EVA_huge_patch14(pretrained=False, use_ssld=False, **kwargs):
@@ -835,6 +862,23 @@ def EVA_huge_patch14(pretrained=False, use_ssld=False, **kwargs):
     )
     return model
 
-def write_model(model, name):
-    with open(f'modelshow/{name}.txt', 'w') as f:
-        f.write(model.__str__())
+def CAE_base_patch16_224(pretrained=False, use_ssld=False, **kwargs):
+    model_name = sys._getframe().f_code.co_name
+    model = VisionTransformer(
+        model_name=model_name,
+        img_size=224,
+        patch_size=16,
+        embed_dim=768,
+        depth=12,
+        num_heads=12,
+        mlp_ratio=4,
+        qkv_bias=True,
+        epsilon=1e-6,
+        **kwargs,
+        )
+    _load_pretrained(
+        pretrained,
+        model,
+        MODEL_URLS[model_name],
+        use_ssld=use_ssld)
+    return model
