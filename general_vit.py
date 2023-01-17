@@ -50,7 +50,7 @@ _MODEL_LIST = ['CLIP_small_patch16_224',
                'CLIP_large_patch14_224',
                'BEiTv2_base_patch16_224',
                'BEiTv2_large_patch16_224',
-               'CAE_small_patch16_224', 
+               'CAE_base_patch16_224',
                'EVA_small_patch16_224', 
                'CoCa_small_patch16_224']
 
@@ -126,14 +126,14 @@ _BEiTv2_diff = {
 
 _CAE_diff = {
     'add_layer_norm_before_encoder': [],
-    'add_relative_position_bias_in_msa': ['small_patch16_224'],
-    'add_shared_rel_pos_bias': ['small_patch16_224'],
-    'add_mul_gamma_to_msa_mlp': ['small_patch16_224'],
+    'add_relative_position_bias_in_msa': ['base_patch16_224'],
+    'add_shared_rel_pos_bias': [],
+    'add_mul_gamma_to_msa_mlp': ['base_patch16_224'],
     'remove_cls_token': [],
     'remove_abs_pos_emb': [],
     'replace_mlp_GELU': [],
     'head':{
-        'fc_norm': ['small_patch16_224'],  # 3 x 197 x 786
+        'fc_norm': [],  # 3 x 197 x 786
         'return_all_tokens':[],   # 3 x 197 x 1000
         'return_patch_tokens':[],  # 3 x 196 x 1000
     }
@@ -815,6 +815,23 @@ def MAE_huge_patch14(pretrained=False, use_ssld=False, **kwargs):
         num_heads=16,
         mlp_ratio=4,
         qkv_bias=True,
+        **kwargs,
+        )
+    return model
+
+
+def CAE_base_patch16_224(pretrained=False, use_ssld=False, **kwargs):
+    model_name = sys._getframe().f_code.co_name
+    model = VisionTransformer(
+        model_name=model_name,
+        img_size=224,
+        patch_size=16,
+        embed_dim=768,
+        depth=12,
+        num_heads=12,
+        mlp_ratio=4,
+        qkv_bias=True,
+        epsilon=1e-6,
         **kwargs,
         )
     return model
